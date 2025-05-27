@@ -1,0 +1,2 @@
+[functions.send-adf-email]
+verify_jwt = false

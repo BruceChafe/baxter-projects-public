@@ -1,0 +1,33 @@
+const AWS = require('aws-sdk');
+
+// Configure AWS SDK
+AWS.config.update({
+  region: 'us-east-2',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
+
+// Create an S3 instance
+const s3 = new AWS.S3();
+
+// Function to generate a pre-signed URL
+function generatePreSignedUrl(bucketName, key, expiresInSeconds) {
+  const params = {
+    Bucket: bucketName, // Your S3 bucket name
+    Key: key, // Path to the file in the bucket
+    Expires: expiresInSeconds, // URL expiration time in seconds
+  };
+
+  // Generate the pre-signed URL
+  const url = s3.getSignedUrl('getObject', params);
+  return url;
+}
+
+// Example usage
+const bucketName = 'your-bucket-name';
+const key = 'driversLicenses/a91df42f-0e1b-4b42-a80a-0f0e685c84eb_captured_image.jpg';
+const expiresInSeconds = 60; // URL will expire after 60 seconds
+
+// Generate and log the pre-signed URL
+const url = generatePreSignedUrl(bucketName, key, expiresInSeconds);
+console.log('Pre-Signed URL:', url);

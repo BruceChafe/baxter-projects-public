@@ -1,0 +1,372 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  extensions        = [pgcrypto, uuid_ossp(map: "uuid-ossp", schema: "extensions")]
+}
+
+model DealerGroupMembers {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String?       @db.Uuid
+  dealergroup_id String?       @db.Uuid
+  created_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  role          String        @default("member")
+  dealergroups  dealergroups? @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users?        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([dealergroup_id], map: "idx_dealergroupmembers_group")
+  @@index([userId], map: "idx_dealergroupmembers_user")
+}
+
+model banrecords {
+  id            String        @id(map: "BanRecords_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contact_id     String        @db.Uuid
+  dealership_id  String        @db.Uuid
+  dealergroup_id String?       @db.Uuid
+  bannedById    String        @db.Uuid
+  banReason     String
+  banNotes      String?
+  dateBanned    DateTime      @default(now())
+  dateLifted    DateTime?
+  isActive      Boolean       @default(true)
+  users         users         @relation(fields: [bannedById], references: [id], map: "BanRecords_bannedById_fkey")
+  contacts      contacts      @relation(fields: [contact_id], references: [id], onDelete: Cascade, map: "BanRecords_contact_id_fkey")
+  dealergroups  dealergroups? @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "BanRecords_dealerGroupId_fkey")
+
+  @@index([contact_id, isActive], map: "BanRecords_contact_id_isActive_idx")
+  @@index([dealergroup_id, dealership_id], map: "BanRecords_dealerGroupId_dealershipId_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contacts {
+  id                String            @id(map: "Contacts_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealership_id      String?           @db.Uuid
+  dealergroup_id     String?           @db.Uuid
+  dms_number         String?
+  first_name         String
+  last_name          String
+  date_of_birth       DateTime?
+  gender            String?
+  preferred_language String?
+  preferred_contact  Json
+  primary_email      String
+  secondary_email    String?
+  mobile_phone       String
+  home_phone         String?
+  work_phone         String?
+  street_address     String?
+  city              String?
+  province          String?
+  postal_code        String?
+  country           String?
+  status            String            @default("ACTIVE")
+  is_banned          Boolean           @default(false)
+  last_visit         DateTime?
+  total_visits       Int               @default(0)
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)"))
+  banrecords        banrecords[]
+  dealergroups      dealergroups?     @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "Contacts_dealerGroupId_fkey")
+  dealerships       dealerships?      @relation(fields: [dealership_id], references: [id], onDelete: Cascade, map: "Contacts_dealershipId_fkey")
+  driverslicenses   driverslicenses[]
+  leads             leads[]
+  visits            visits[]
+}
+
+model customernotes {
+  id               String          @id(map: "CustomerNotes_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String          @db.Uuid
+  driversLicenseId String          @db.Uuid
+  content          String
+  dateCreated      DateTime        @default(now())
+  driverslicenses  driverslicenses @relation(fields: [driversLicenseId], references: [id], onDelete: Cascade, map: "CustomerNotes_driversLicenseId_fkey")
+  users            users           @relation(fields: [userId], references: [id], map: "CustomerNotes_userId_fkey")
+}
+
+model dealergroupmembers {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  dealer_group_id String    @db.Uuid
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, dealer_group_id])
+}
+
+model dealergroups {
+  id                 String               @id(map: "DealerGroups_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String               @unique(map: "DealerGroups_name_key")
+  dateCreated        DateTime             @default(now())
+  isDeleted          Boolean              @default(false)
+  deletedAt          DateTime?
+  country            String?
+  users              String[]             @default([]) @db.Uuid
+  DealerGroupMembers DealerGroupMembers[]
+  banrecords         banrecords[]
+  contacts           contacts[]
+  dealerships        dealerships[]
+  departments        departments[]
+  driverslicenses    driverslicenses[]
+  jobtitles          jobtitles[]
+  leads              leads[]
+  visits             visits[]
+}
+
+model dealershiphours {
+  id           String      @id(map: "DealershipHours_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealership_id String      @db.Uuid
+  day          String
+  open         String
+  close        String
+  dealerships  dealerships @relation(fields: [dealership_id], references: [id], onDelete: Cascade, map: "DealershipHours_dealershipId_fkey")
+
+  @@unique([dealership_id, day], map: "DealershipHours_dealershipId_day_key")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dealerships {
+  id                    String            @id(map: "Dealerships_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dealergroup_id         String            @db.Uuid
+  dealership_name        String            @unique(map: "Dealerships_name_key")
+  dateCreated           DateTime          @default(now())
+  isDeleted             Boolean           @default(false)
+  deletedAt             DateTime?
+  leadResponseTimeLimit Int               @default(30)
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  state                 String?
+  postal_code            String?
+  country               String?           @default("CAN")
+  phoneNumber           String?
+  faxNumber             String?
+  contactEmail          String?
+  website               String?
+  contacts              contacts[]
+  dealershiphours       dealershiphours[]
+  dealergroups          dealergroups      @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "Dealerships_dealerGroupId_fkey")
+  driverslicenses       driverslicenses[]
+  leads                 leads[]
+  users                 users[]
+  visits                visits[]
+  departments           departments[]     @relation("DealershipDepartments")
+  jobTitles             jobtitles[]       @relation("JobTitleDealerships")
+
+  @@index([dealergroup_id, dateCreated], map: "Dealerships_dealerGroupId_dateCreated_idx")
+}
+
+model departments {
+  id            String        @id(map: "Departments_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String        @unique(map: "Departments_name_key")
+  isUniversal   Boolean       @default(false)
+  dealergroup_id String?       @db.Uuid
+  dateCreated   DateTime      @default(now())
+  dealergroups  dealergroups? @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "Departments_dealerGroupId_fkey")
+  jobtitles     jobtitles[]
+  users         users[]
+  dealerships   dealerships[] @relation("DealershipDepartments")
+}
+
+model driverslicenses {
+  id              String          @id(map: "DriversLicenses_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String          @db.Uuid
+  dealership_id    String          @db.Uuid
+  dealergroup_id   String          @db.Uuid
+  contact_id       String          @db.Uuid
+  licenseNumber   String
+  first_name       String
+  last_name        String
+  middleName      String?
+  city            String?
+  province        String?
+  postal_code      String?
+  address         String?
+  expirationDate  DateTime?
+  date_of_birth     DateTime
+  dateOfIssue     DateTime?
+  endorsements    String?
+  restrictions    String?
+  country         String?         @default("CAN")
+  dateProcessed   DateTime        @default(now())
+  imageUrl        String?
+  scannedByUserId String?         @db.Uuid
+  scannedAt       DateTime?
+  customernotes   customernotes[]
+  contacts        contacts        @relation(fields: [contact_id], references: [id], onDelete: Cascade, map: "DriversLicenses_contact_id_fkey")
+  dealergroups    dealergroups    @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "DriversLicenses_dealerGroupId_fkey")
+  dealerships     dealerships     @relation(fields: [dealership_id], references: [id], onDelete: Cascade, map: "DriversLicenses_dealershipId_fkey")
+  users           users           @relation(fields: [userId], references: [id], map: "DriversLicenses_userId_fkey")
+  visits          visits[]
+
+  @@unique([licenseNumber, dealership_id], map: "DriversLicenses_licenseNumber_dealershipId_key")
+  @@index([last_name, first_name], map: "DriversLicenses_last_name_first_name_idx")
+}
+
+model jobtitles {
+  id            String        @id(map: "JobTitles_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String
+  department_id  String        @db.Uuid
+  isUniversal   Boolean       @default(false)
+  dealergroup_id String?       @db.Uuid
+  dateCreated   DateTime      @default(now())
+  dealergroups  dealergroups? @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "JobTitles_dealerGroupId_fkey")
+  departments   departments   @relation(fields: [department_id], references: [id], onDelete: Cascade, map: "JobTitles_department_id_fkey")
+  users         users[]
+  dealerships   dealerships[] @relation("JobTitleDealerships")
+
+  @@unique([title, department_id], map: "JobTitles_title_department_id_key")
+}
+
+model leadactivities {
+  id          String   @id(map: "LeadActivities_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId      String   @db.Uuid
+  type        String
+  title       String
+  description String?
+  created_at   DateTime @default(now())
+  userId      String?  @db.Uuid
+  leads       leads    @relation(fields: [leadId], references: [id], onDelete: Cascade, map: "LeadActivities_leadId_fkey")
+  users       users?   @relation(fields: [userId], references: [id], map: "LeadActivities_userId_fkey")
+
+  @@index([leadId, created_at], map: "LeadActivities_leadId_created_at_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model leads {
+  id                            String           @id(map: "Leads_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contact_id                     String?          @db.Uuid
+  dealership_id                  String?          @db.Uuid
+  dealergroup_id                 String?          @db.Uuid
+  vehicleMake                   String?
+  vehicleModel                  String?
+  vehicleYear                   String?
+  budget                        String?
+  leadSource                    String
+  leadStatus                    String           @default("Unattended")
+  leadType                      String?
+  leadMedia                     String?
+  leadPriority                  String           @default("medium")
+  assignedTo                    String?          @db.Uuid
+  vin                           String?
+  comments                      String?
+  created_at                     DateTime         @default(now())
+  updated_at                     DateTime?
+  tradeIn                       String?
+  tradeInDetails                String?
+  response_deadline             DateTime?        @db.Timestamp(6)
+  leadactivities                leadactivities[]
+  users_leads_assignedToTousers users?           @relation("leads_assignedToTousers", fields: [assignedTo], references: [id], map: "Leads_assignedTo_fkey")
+  contacts                      contacts?        @relation(fields: [contact_id], references: [id], onDelete: Cascade, map: "Leads_contact_id_fkey")
+  dealergroups                  dealergroups?    @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "Leads_dealerGroupId_fkey")
+  dealerships                   dealerships?     @relation(fields: [dealership_id], references: [id], onDelete: Cascade, map: "Leads_dealershipId_fkey")
+  leadtasks                     leadtasks[]
+  unattendedleads               unattendedleads?
+
+  @@index([leadStatus], map: "idx_leads_lead_status")
+  @@index([response_deadline], map: "idx_leads_response_deadline")
+}
+
+model leadtasks {
+  id          String   @id(map: "LeadTasks_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId      String   @db.Uuid
+  title       String
+  description String?
+  status      String   @default("To Do")
+  priority    String   @default("Medium")
+  dueDate     DateTime
+  created_at   DateTime @default(now())
+  updated_at   DateTime
+  leads       leads    @relation(fields: [leadId], references: [id], onDelete: Cascade, map: "LeadTasks_leadId_fkey")
+
+  @@index([status, priority], map: "LeadTasks_status_priority_idx")
+}
+
+model roles {
+  id          String      @id(map: "Roles_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String      @unique(map: "Roles_name_key")
+  description String?
+  userroles   userroles[]
+  users       users[]
+}
+
+model unattendedleads {
+  id               String    @id(map: "UnattendedLeads_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadid           String    @unique(map: "UnattendedLeads_leadId_key") @db.Uuid
+  created_at        DateTime  @default(now())
+  notifiedAt       DateTime?
+  isEscalated      Boolean   @default(false)
+  claimedBy        String?   @db.Uuid
+  claimedAt        DateTime? @db.Timestamp(6)
+  responseDeadline DateTime? @db.Timestamp(6)
+  users            users?    @relation(fields: [claimedBy], references: [id], onUpdate: NoAction)
+  leads            leads     @relation(fields: [leadid], references: [id], onDelete: Cascade)
+}
+
+model userroles {
+  id         String   @id(map: "UserRoles_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @db.Uuid
+  role_id     String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  roles      roles    @relation(fields: [role_id], references: [id], map: "UserRoles_roleId_fkey")
+  users      users    @relation(fields: [userId], references: [id], map: "UserRoles_userId_fkey")
+
+  @@unique([userId, role_id], map: "UserRoles_userId_roleId_key")
+}
+
+model users {
+  id                            String               @id(map: "Users_pkey") @default(dbgenerated("auth.uid()")) @db.Uuid
+  email                         String
+  phoneNumber                   String?
+  first_name                     String
+  last_name                      String
+  created_at                    DateTime             @default(now()) @db.Timestamptz(6)
+  role_id                        String?              @db.Uuid
+  primary_dealership_id           String?              @db.Uuid
+  job_title_id                    String?              @db.Uuid
+  department_id                  String?              @db.Uuid
+  dealerships                   Json[]
+  dealergroup_id                 String?              @db.Uuid
+  DealerGroupMembers            DealerGroupMembers[]
+  banrecords                    banrecords[]
+  customernotes                 customernotes[]
+  driverslicenses               driverslicenses[]
+  leadactivities                leadactivities[]
+  leads_leads_assignedToTousers leads[]              @relation("leads_assignedToTousers")
+  unattendedleads               unattendedleads[]
+  userroles                     userroles[]
+  departments                   departments?         @relation(fields: [department_id], references: [id], map: "Users_department_id_fkey")
+  jobtitles                     jobtitles?           @relation(fields: [job_title_id], references: [id], map: "Users_job_title_id_fkey")
+  primaryDealership             dealerships?         @relation(fields: [primary_dealership_id], references: [id], map: "Users_primary_dealership_id_fkey")
+  roles                         roles?               @relation(fields: [role_id], references: [id], map: "Users_roleId_fkey")
+  visits                        visits[]
+
+  @@index([email], map: "Users_email_idx")
+  @@index([last_name, first_name], map: "Users_last_name_first_name_idx")
+}
+
+model visits {
+  id                String           @id(map: "Visits_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String           @db.Uuid
+  dealership_id      String?          @db.Uuid
+  dealergroup_id     String?          @db.Uuid
+  driversLicenseId  String?          @db.Uuid
+  contact_id         String?          @db.Uuid
+  salesConsultant   String?
+  vehicleOfInterest String?
+  salesType         String?
+  notes             String?
+  visitReason       String?
+  dateOfVisit       DateTime         @default(now())
+  contacts          contacts?        @relation(fields: [contact_id], references: [id], onDelete: Cascade, map: "Visits_contact_id_fkey")
+  dealergroups      dealergroups?    @relation(fields: [dealergroup_id], references: [id], onDelete: Cascade, map: "Visits_dealerGroupId_fkey")
+  dealerships       dealerships?     @relation(fields: [dealership_id], references: [id], onDelete: Cascade, map: "Visits_dealershipId_fkey")
+  driverslicenses   driverslicenses? @relation(fields: [driversLicenseId], references: [id], onDelete: Cascade, map: "Visits_driversLicenseId_fkey")
+  users             users            @relation(fields: [userId], references: [id], map: "Visits_userId_fkey")
+
+  @@index([dateOfVisit], map: "Visits_dateOfVisit_idx")
+}

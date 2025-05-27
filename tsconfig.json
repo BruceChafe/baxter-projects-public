@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "strict": true,  
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["vite/client", "node", "jest"],
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "outDir": "./dist",
+    "resolveJsonModule": true
+  },
+  "include": ["src", "api/**/*.ts", "api/**/*.tsx", "api/routes/receive-adf-lead.ts"],
+  "exclude": ["node_modules"]
+}

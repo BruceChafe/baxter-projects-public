@@ -1,0 +1,19 @@
+# Dependency and build folders
+node_modules/
+dist/
+build/
+.vercel/
+.next/
+.turbo/
+.output/
+
+# Supabase config and output
+supabase/.output/
+supabase/config.toml
+
+# Sensitive files
+.env
+
+# IDE and system files
+.vscode/
+.DS_Store
